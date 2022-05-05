@@ -39,16 +39,12 @@ T2 = T2+T1_end;
 
 full_time = [T1;T2];
 ramp_angle = Z1(:,1);
-ramp_cartesian = [r_COM*(1 - cos(ramp_angle)),r_COM*(1 - sin(ramp_angle))];
+ramp_cartesian = [r_COM*(1 - cos(ramp_angle)),r_COM*(sin(ramp_angle))];
 air_cartesian = Z2(:,1:2);
 cartesian = [ramp_cartesian;air_cartesian];
-%{
-figure(1)
-plot(ramp_cartesian(:,1),ramp_cartesian(:,2));
-figure(2)
-plot(air_cartesian(:,1),air_cartesian(:,2));
-%}
-plot(cartesian(:,1),cartesian(:,2));
+
+plot(ramp_cartesian(:,1),)
+%plot(cartesian(:,1),cartesian(:,2));
 
 %options2 = odeset('RelTol',reltol,'Events',event_stop_2)
 
