@@ -15,8 +15,8 @@ ramp_theta_cutoff = 40;     % where ramp ends, degrees
 %ml^2, where l = the distance from their COM to the board. We change the
 %length of the cylinder at a constant rate.
 COM_board_dist = 0.55*1.754;    % distance btwn snowboard/ground and person's COM. this number is very not fact checked
-COM_board_end = 0.4048;         % distance btwn snowboard/ground and person's COM, crouched
-MOI_change_time = 1;           % time taken for moment of inertia to change
+COM_board_end = 0.3048;         % distance btwn snowboard/ground and person's COM, crouched
+MOI_change_time = 1.5;           % time taken for moment of inertia to change
 Ldot = (COM_board_end - COM_board_dist)/MOI_change_time;
 r_COM = r - COM_board_dist;
 
@@ -125,18 +125,18 @@ vxboard = vxbody + Ltime.*thetadot.*sin(theta);
 vyboard = vybody - Ltime.*thetadot.*cos(theta);
 vboard = sqrt(vxboard.^2 + vyboard.^2);
 
-T2corrected = T2 - T2(1,1);
+
 
 figure()
 subplot(2,1,1)
-plot(T2corrected, vbody)
+plot(T2, vbody)
 hold
-plot(T2corrected, vboard)
+plot(T2, vboard)
 hold
 ylabel('Linear Velocity')
 title('Linear and Angular Velocities in Air')
 subplot(2,1,2)
-plot(T2corrected, thetadot)
+plot(T2, thetadot)
 hold
 ylabel('Angular Velocity')
 xlabel('Time (s)')
