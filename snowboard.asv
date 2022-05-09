@@ -15,8 +15,8 @@ ramp_theta_cutoff = 40;     % where ramp ends, degrees
 %ml^2, where l = the distance from their COM to the board. We change the
 %length of the cylinder at a constant rate.
 COM_board_dist = 0.55*1.754;    % distance btwn snowboard/ground and person's COM. this number is very not fact checked
-COM_board_end = 0.3048;         % distance btwn snowboard/ground and person's COM, crouched
-MOI_change_time = 1.5;           % time taken for moment of inertia to change
+COM_board_end = 0.4048;         % distance btwn snowboard/ground and person's COM, crouched
+MOI_change_time = 1;           % time taken for moment of inertia to change
 Ldot = (COM_board_end - COM_board_dist)/MOI_change_time;
 r_COM = r - COM_board_dist;
 
@@ -24,7 +24,7 @@ r_COM = r - COM_board_dist;
 z0_1=[0, 0];
 
 % Time and ode
-t_span = [0, 15]; 
+t_span = [0, 12]; 
 
 reltol = 1.0e-9;
 options1= odeset('RelTol', reltol,'Events',@event_stop_1);
@@ -32,6 +32,9 @@ options1= odeset('RelTol', reltol,'Events',@event_stop_1);
 [T1,Z1] = ode45(@eom1, t_span, z0_1, options1);
 
 T1_end = T1(end);
+
+vphase1com = r_COM.*Z1(:,2);
+vphase1board = r.*Z1(:,2);
 
 %Stage 2 setup - defining IC's etc
 x0 = r + r_COM*sind(ramp_theta_cutoff);     %considering left edge of ramp where x = 0
@@ -48,7 +51,6 @@ t_span2 = [T1_end, 10];
 options2 = odeset('RelTol',reltol,'Events',@event_stop_3);
 
 [T2,Z2] = ode45(@eom2,t_span2,z0_2,options2);
-T2 = T2+T1_end;
 
 %{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%This was an attempt to use a third ODE to
@@ -110,7 +112,8 @@ ylabel("Position (y), meters")
 title("Snowboarder on Ramp Position vs. Time")
 hold off
 
-% Angular Velocity and Acceleration of COM after leaving ramp
+
+% Angular Velocity and Accelerations
 % xbody = Z2(:,1);
 % ybody = Z2(:,2);
 % xramp = Z2(:,1) - Z2(:,7);
@@ -125,22 +128,47 @@ vxboard = vxbody + Ltime.*thetadot.*sin(theta);
 vyboard = vybody - Ltime.*thetadot.*cos(theta);
 vboard = sqrt(vxboard.^2 + vyboard.^2);
 
+merged_vbody = [vphase1com; vbody];
+merged_vboard = [vphase1board; vboard];
+merged_thetadot = [Z1(:,2); thetadot];
 
 
 figure()
 subplot(2,1,1)
-plot(T2, vbody)
+plot(full_time, merged_vbody)
 hold
-plot(T2, vboard)
+plot(full_time, merged_vboard)
+hold
+xline(T1_end)
 hold
 ylabel('Linear Velocity')
-title('Linear and Angular Velocities in Air')
+title('Linear and Angular Velocities')
+legend('COM Velocity', '')
 subplot(2,1,2)
-plot(T2, thetadot)
+plot(full_time, merged_thetadot)
+hold
+xline(T1_end)
 hold
 ylabel('Angular Velocity')
 xlabel('Time (s)')
 figure(2)
+
+
+% Energy
+PEbody = m.*g.*COMcart(:,2);
+angvel_e = [0.*T1; thetadot.^2.*((1/12).*m.*Z2(:,7))]
+KEbody = m.*merged_vbody.^2./2 + angvel_e;
+TEbody = PEbody + KEbody;
+
+figure();
+hold on;
+plot(full_time, PEbody);
+plot(full_time, KEbody);
+plot(full_time, TEbody);
+legend("Potential Energy", "Kinetic Energy", "Total Energy");
+hold off
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function dzdt = eom1 (T,Z)
@@ -151,7 +179,7 @@ function dzdt = eom1 (T,Z)
 F_d = 0;%adding a drag force = 0 in case we want to implement this later
 
 dz1dt = Z(2);
-dz2dt = g*cos(Z(1))/r - F_d/m;
+dz2dt = g*cos(Z(1))/r_COM - F_d/m;
 dzdt = [dz1dt;dz2dt];
 
 end

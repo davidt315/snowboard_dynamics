@@ -24,7 +24,7 @@ r_COM = r - COM_board_dist;
 z0_1=[0, 0];
 
 % Time and ode
-t_span = [0, 15]; 
+t_span = [0, 12]; 
 
 reltol = 1.0e-9;
 options1= odeset('RelTol', reltol,'Events',@event_stop_1);
@@ -32,6 +32,9 @@ options1= odeset('RelTol', reltol,'Events',@event_stop_1);
 [T1,Z1] = ode45(@eom1, t_span, z0_1, options1);
 
 T1_end = T1(end);
+
+vphase1com = r_COM.*Z1(:,2);
+vphase1board = r.*Z1(:,2);
 
 %Stage 2 setup - defining IC's etc
 x0 = r + r_COM*sind(ramp_theta_cutoff);     %considering left edge of ramp where x = 0
@@ -48,7 +51,6 @@ t_span2 = [T1_end, 10];
 options2 = odeset('RelTol',reltol,'Events',@event_stop_3);
 
 [T2,Z2] = ode45(@eom2,t_span2,z0_2,options2);
-T2 = T2+T1_end;
 
 %{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%This was an attempt to use a third ODE to
@@ -110,7 +112,8 @@ ylabel("Position (y), meters")
 title("Snowboarder on Ramp Position vs. Time")
 hold off
 
-% Angular Velocity and Acceleration of COM after leaving ramp
+
+% Angular Velocity and Accelerations
 % xbody = Z2(:,1);
 % ybody = Z2(:,2);
 % xramp = Z2(:,1) - Z2(:,7);
@@ -125,22 +128,51 @@ vxboard = vxbody + Ltime.*thetadot.*sin(theta);
 vyboard = vybody - Ltime.*thetadot.*cos(theta);
 vboard = sqrt(vxboard.^2 + vyboard.^2);
 
-T2corrected = T2 - T2(1,1);
+merged_vbody = [vphase1com; vbody];
+merged_vboard = [vphase1board; vboard];
+merged_thetadot = [Z1(:,2); thetadot];
+
 
 figure()
 subplot(2,1,1)
-plot(T2corrected, vbody)
+plot(full_time, merged_vbody)
 hold
-plot(T2corrected, vboard)
+plot(full_time, merged_vboard)
+hold
+xline(T1_end)
 hold
 ylabel('Linear Velocity')
-title('Linear and Angular Velocities in Air')
+title('Linear and Angular Velocities')
+legend('COM Velocity', 'Board Velocity', 'Ramp Cutoff', 'Location', 'best')
 subplot(2,1,2)
-plot(T2corrected, thetadot)
+plot(full_time, merged_thetadot)
+hold
+xline(T1_end)
 hold
 ylabel('Angular Velocity')
 xlabel('Time (s)')
+legend('COM Angular Velocity', 'Ramp Cutoff', 'Location', 'best')
 figure(2)
+
+
+% Energy
+PEbody = m.*g.*COMcart(:,2);
+angvel_e = [0.*T1; thetadot.^2.*((1/12).*m.*Z2(:,7))];
+KEbody = m.*merged_vbody.^2./2 + angvel_e;
+TEbody = PEbody + KEbody;
+
+figure();
+hold on;
+plot(full_time, PEbody);
+plot(full_time, KEbody);
+plot(full_time, TEbody);
+title('COM Energy Over Time')
+xlabel('Time (s)')
+ylabel('Energy (J)')
+legend("Potential Energy", "Kinetic Energy", "Total Energy", 'Location', 'best');
+hold off
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function dzdt = eom1 (T,Z)
@@ -151,7 +183,7 @@ function dzdt = eom1 (T,Z)
 F_d = 0;%adding a drag force = 0 in case we want to implement this later
 
 dz1dt = Z(2);
-dz2dt = g*cos(Z(1))/r - F_d/m;
+dz2dt = g*cos(Z(1))/r_COM - F_d/m;
 dzdt = [dz1dt;dz2dt];
 
 end
