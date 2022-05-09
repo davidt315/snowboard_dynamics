@@ -6,17 +6,17 @@ close all
 
 g = 9.81;                   % gravitational acceleration in m/s^2
 m = 50;                     % mass in kg
-r = 20;                     % ramp radius in m
-ramp_theta_cutoff = 50;     % where ramp ends, degrees
+r = 25;                     % ramp radius in m
+ramp_theta_cutoff = 40;     % where ramp ends, degrees
 
 
 %Model the snowboarder as a cylinder rotating around an axis through the
 %"long" side, not the circular faces. The snowboarder has an MOI of 1/12
 %ml^2, where l = the distance from their COM to the board. We change the
 %length of the cylinder at a constant rate.
-COM_board_dist = 0.55*1.754; % distance btwn snowboard/ground and person's COM. this number is very not fact checked
-COM_board_end = 0.3048;     % distance btwn snowboard/ground and person's COM, crouched
-MOI_change_time = 3;      % time taken for moment of inertia to change
+COM_board_dist = 0.55*1.754;    % distance btwn snowboard/ground and person's COM. this number is very not fact checked
+COM_board_end = 0.3048;         % distance btwn snowboard/ground and person's COM, crouched
+MOI_change_time = .5;           % time taken for moment of inertia to change
 Ldot = (COM_board_end - COM_board_dist)/MOI_change_time;
 r_COM = r - COM_board_dist;
 
@@ -34,20 +34,22 @@ options1= odeset('RelTol', reltol,'Events',@event_stop_1);
 T1_end = T1(end);
 
 %Stage 2 setup - defining IC's etc
-x0 = r + r_COM*sind(ramp_theta_cutoff);%considering left edge of ramp where x = 0
-y0 = r - r_COM*cosd(ramp_theta_cutoff);%considering lowest point of ramp where y=0
+x0 = r + r_COM*sind(ramp_theta_cutoff);     %considering left edge of ramp where x = 0
+y0 = r - r_COM*cosd(ramp_theta_cutoff);     %considering lowest point of ramp where y=0
 v0_mag = r_COM*(Z1(length(Z1),2));
-vx0 = v0_mag*cos(Z1(length(Z1),1) - pi*0.5);
-vy0 = v0_mag*sin(Z1(length(Z1),1) - pi*0.5);
+vx0 = v0_mag*cos(Z1(length(Z1),1) - pi/2);
+vy0 = v0_mag*sin(Z1(length(Z1),1) - pi/2);
+
 %angle of snowboarder's body - COM relative to edge
 t_b0 = Z1(length(Z1),1);
 t_bdot0 = Z1(length(Z1),2);
 z0_2 = [x0,y0,vx0,vy0,t_b0,t_bdot0,COM_board_dist];
-t_span2 = [T1_end, 30];
+t_span2 = [T1_end, 10];
 options2 = odeset('RelTol',reltol,'Events',@event_stop_3);
 
 [T2,Z2] = ode45(@eom2,t_span2,z0_2,options2);
 T2 = T2+T1_end;
+
 %{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%This was an attempt to use a third ODE to
 model the constant MOI phase of the motion. I realized I couldn't use the
@@ -61,6 +63,7 @@ t_span3 = [T2_end,40];
 options3 = odeset('RelTol',reltol,'Events',@event_stop_3);
 [T3,Z3] = ode45(@eom3,t_span3,z0_3,options3);
 %}
+
 full_time = [T1;T2];
 ramp_angle = Z1(:,1);
 %Convert stage 1 to Cartesian Coordinates
@@ -80,9 +83,11 @@ body_angle_3 = Z3(:,5);
 Edge_air_cart3 = COMair_cart3 - COM_board_end.*[cos(body_angle_3),sin(body_angle_3)];
 Edge_air_cart = [Edge_air_cart2;Edge_air_cart3];
 %}
+
 %Combine coordinates
 COMcart = [COMramp_cart;COMair_cart2];
 Edge_cart = [Edge_ramp_cart;Edge_air_cart2];
+
 
 %{
 figure(1)
@@ -92,21 +97,37 @@ plot(COMramp_cart(:,1),COMramp_cart(:,2));
 figure(2)
 plot(COMair_cart2(:,1),COMair_cart2(:,2));
 %}
+
+% Full trajectory of snowboarder
 hold on
 plot(COMcart(:,1),COMcart(:,2));
 plot(Edge_cart(:,1),Edge_cart(:,2));
-legend("COM","Edge of Board")
+plot([COMramp_cart(length(COMramp_cart),1) Edge_ramp_cart(length(Edge_ramp_cart),1)], ...
+    [COMramp_cart(length(COMramp_cart),2) Edge_ramp_cart(length(Edge_ramp_cart),2)], '-black');
+legend("COM","Edge of Board","End of Ramp")
 xlabel("Position (x), meters")
 ylabel("Position (y), meters")
 title("Snowboarder on Ramp Position vs. Time")
 hold off
-%options2 = odeset('RelTol',reltol,'Events',event_stop_2)
-figure(2)
+
+% Angular Velocity and Acceleration of COM
+
+figure()
+subplot(2,1,1)
 plot(T2,body_angle_2)
+hold
+ylabel('M1 Angle Theta1 (rad)')
+title('Angular Positions and Velocities')
+subplot(2,1,2)
+plot(T, theta2)
+hold
+ylabel('M2 Angle Theta2 (rad)')
+
+figure(2)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function dzdt = eom1 (T,Z)
-    %Stage 1 (Snowboarder on ramp EOM)
+%Stage 1 (Snowboarder on ramp EOM)
 % DAE form
 % eom + constraint eqn (written wrt state variables) 
 %z1 = theta, z2 = thetadot
@@ -116,26 +137,6 @@ dz1dt = Z(2);
 dz2dt = g*cos(Z(1))/r - F_d/m;
 dzdt = [dz1dt;dz2dt];
 
-%Commenting this version out since it looks like double pendulum stuff
-%{
- z1 = theta1, z2 = theta2, z3 = theta1dot, z4 = theta2dot, z5 = T1, z6 =T2
-
-Mat = [1 0 0 0 0 0;
-       0 1 0 0 0 0;
-       0 0 L1 0 0 ((-sin(Z(2)-Z(1)))/m1);
-       0 0 0 (L2*cos(Z(2)-Z(1))) 0 (sin(Z(2)-Z(1))*((1/m1)+(1/m2)));
-       0 0 0 0 (-1/m1) (cos(Z(2)-Z(1))/m1);
-       0 0 0 (-L2*sin(Z(2)-Z(1))) 0 (cos(Z(2)-Z(1))/m2)];
-vec = [Z(3);
-       Z(4);
-       -g*sin(Z(1));
-       (Z(4)^2)*L2*sin(Z(2)-Z(1));
-       -(Z(3)^2)*L1 - g*cos(Z(1));
-       (Z(3)^2)*L1 + (Z(4)^2)*L2*cos(Z(2)-Z(1)) + g*cos(Z(1))];
-
-
-dzdt = Mat\vec;
-%}
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function dzdt = eom2(T,Z)
