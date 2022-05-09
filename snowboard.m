@@ -14,10 +14,10 @@ ramp_theta_cutoff = 40;     % where ramp ends, degrees
 %"long" side, not the circular faces. The snowboarder has an MOI of 1/12
 %ml^2, where l = the distance from their COM to the board. We change the
 %length of the cylinder at a constant rate.
-COM_board_dist = 0.55*1.754;    % distance btwn snowboard/ground and person's COM. this number is very not fact checked
-COM_board_end = 0.4048;         % distance btwn snowboard/ground and person's COM, crouched
+COM_board_dist = 0.5*1.754;    % distance btwn snowboard/ground and person's COM: Avg height*0.5
+COM_board_end = 0.8382;         % distance btwn snowboard/ground and person's COM, crouched
 MOI_change_time = 1;           % time taken for moment of inertia to change
-Ldot = (COM_board_end - COM_board_dist)/MOI_change_time;
+Ldot = (COM_board_end - 2*COM_board_dist)/MOI_change_time;
 r_COM = r - COM_board_dist;
 
 % initial values phase 1
