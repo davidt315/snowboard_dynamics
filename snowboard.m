@@ -8,11 +8,11 @@ g = 9.81;                   % gravitational acceleration in m/s^2
 m = 50;                     % mass in kg
 r = 20;                     % ramp radius in m
 COM_board_dist = 0.55*1.754; % distance between snowboard/ground and person's COM. this number is very not fact checked
-ramp_theta_cutoff = 15;     % degrees where ramp ends
+ramp_theta_cutoff = 15;     % where ramp ends, degrees
 r_COM = r - COM_board_dist;
 
 % initial values phase 1
-z0_1=[0, 0];
+z0_1=[0, 0.5];
 
 % Time and ode
 t_span = [0, 15]; 
@@ -25,12 +25,15 @@ options1= odeset('RelTol', reltol,'Events',@event_stop_1);
 T1_end = T1(end);
 
 %Stage 2 setup - defining IC's etc
-x0 = r_COM*(1 + sind(ramp_theta_cutoff));%considering left edge of ramp where x = 0
-y0 = r_COM*(1 - cosd(ramp_theta_cutoff));%considering lowest point of ramp where y=0
+x0 = r + r_COM*sind(ramp_theta_cutoff);%considering left edge of ramp where x = 0
+y0 = r - r_COM*cosd(ramp_theta_cutoff);%considering lowest point of ramp where y=0
 v0_mag = r_COM*(Z1(length(Z1),2));
 vx0 = v0_mag*cos(Z1(length(Z1),1) - pi*0.5);
 vy0 = v0_mag*sin(Z1(length(Z1),1) - pi*0.5);
-z0_2 = [x0,y0,vx0,vy0];
+%angle of snowboarder's body - COM relative to edge
+t_b0 = Z1(length(Z1),1);
+t_bdot0 = Z1(length(Z1),2);
+z0_2 = [x0,y0,vx0,vy0,t_b0,t_bdot0];
 t_span2 = [T1_end, 30];
 options2 = odeset('RelTol',reltol,'Events',@event_stop_2);
 [T2,Z2] = ode45(@eom2,t_span2,z0_2,options2);
@@ -39,17 +42,33 @@ T2 = T2+T1_end;
 
 full_time = [T1;T2];
 ramp_angle = Z1(:,1);
-ramp_cartesian = [r_COM*(1 - cos(ramp_angle)),r_COM*(1 - sin(ramp_angle))];
-air_cartesian = Z2(:,1:2);
-cartesian = [ramp_cartesian;air_cartesian];
+%Convert stage 1 to Cartesian Coordinates
+COMramp_cart = [r - r_COM*cos(ramp_angle),r - r_COM*sin(ramp_angle)];
+Edge_ramp_cart = [r*(1 - cos(ramp_angle)),r*(1 - sin(ramp_angle))];
+
+%Get stage 2 position in Cartesian Coordinates
+COMair_cart = Z2(:,1:2);
+body_angle = Z2(:,5);
+Edge_air_cart = COMair_cart - COM_board_dist.*[cos(body_angle),sin(body_angle)];
+
+%Combine coordinates
+COMcart = [COMramp_cart;COMair_cart];
+Edge_cart = [Edge_ramp_cart;Edge_air_cart];
+
 %{
 figure(1)
 plot(ramp_cartesian(:,1),ramp_cartesian(:,2));
 figure(2)
 plot(air_cartesian(:,1),air_cartesian(:,2));
 %}
-plot(cartesian(:,1),cartesian(:,2));
-
+hold on
+plot(COMcart(:,1),COMcart(:,2));
+plot(Edge_cart(:,1),Edge_cart(:,2));
+legend("COM","Edge of Board")
+xlabel("Position (x), meters")
+ylabel("Position (y), meters")
+title("Snowboarder on Ramp Position vs. Time")
+hold off
 %options2 = odeset('RelTol',reltol,'Events',event_stop_2)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -88,8 +107,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function dzdt = eom2(T,Z)
     %Stage 2 - Snowboarder in air's COM EOM
-    %z1 = x, z2 = y, z3 = xdot, z4 = ydot
-    dzdt = [Z(3);Z(4);0; -g];
+    %z1 = x, z2 = y, z3 = xdot, z4 = ydot, z5 = t_b angle, z6 = t_bdot
+    dzdt = [Z(3);Z(4);0; -g;Z(6);0];
 end
       
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -30,7 +30,9 @@ y0 = r_COM*(1 - cosd(ramp_theta_cutoff));%considering lowest point of ramp where
 v0_mag = r_COM*(Z1(length(Z1),2));
 vx0 = v0_mag*cos(Z1(length(Z1),1) - pi*0.5);
 vy0 = v0_mag*sin(Z1(length(Z1),1) - pi*0.5);
-z0_2 = [x0,y0,vx0,vy0];
+t_b0 = Z1(length(Z1),1);
+t_bdot0 = Z1(length(Z1),2);
+z0_2 = [x0,y0,vx0,vy0,t_b0,t_bdot0];
 t_span2 = [T1_end, 30];
 options2 = odeset('RelTol',reltol,'Events',@event_stop_2);
 [T2,Z2] = ode45(@eom2,t_span2,z0_2,options2);
@@ -39,12 +41,24 @@ T2 = T2+T1_end;
 
 full_time = [T1;T2];
 ramp_angle = Z1(:,1);
-ramp_cartesian = [r_COM*(1 - cos(ramp_angle)),r_COM*(sin(ramp_angle))];
-air_cartesian = Z2(:,1:2);
-cartesian = [ramp_cartesian;air_cartesian];
+%Convert stage 1 to Cartesian Coordinates
+COMramp_cart = [r_COM*(1 - cos(ramp_angle)),r_COM*(1 - sin(ramp_angle))];
+Edge_ramp_cart = [r*(1 - cos(ramp_angle)),r*(1 - sin(ramp_angle))];
 
-plot(ramp_cartesian(:,1),)
-%plot(cartesian(:,1),cartesian(:,2));
+%Get stage 2 position in Cartesian Coordinates
+COMair_cart = Z2(:,1:2);
+Edge_air_cart = COMair_cart - COM_board_dist.*[cos()]
+
+%Combine coordinates
+COMcart = [COMramp_cart;COMair_cart];
+Edge_cart = 
+%{
+figure(1)
+plot(ramp_cartesian(:,1),ramp_cartesian(:,2));
+figure(2)
+plot(air_cartesian(:,1),air_cartesian(:,2));
+%}
+plot(COMcart(:,1),COMcart(:,2));
 
 %options2 = odeset('RelTol',reltol,'Events',event_stop_2)
 
@@ -84,8 +98,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function dzdt = eom2(T,Z)
     %Stage 2 - Snowboarder in air's COM EOM
-    %z1 = x, z2 = y, z3 = xdot, z4 = ydot
-    dzdt = [Z(3);Z(4);0; -g];
+    %z1 = x, z2 = y, z3 = xdot, z4 = ydot, z5 = t_b angle, z6 = t_bdot
+    dzdt = [Z(3);Z(4);0; -g;Z(6);0];
 end
       
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
